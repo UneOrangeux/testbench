@@ -3,42 +3,89 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Brain Rot Corner — Multi Video</title>
+<title>The Brain Rot Corner — Top-Left Menu</title>
 <style>
   html,body{height:100%}
-  body{margin:0;background:transparent;pointer-events:none;
-       font:14px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  body{
+    margin:0;
+    background:transparent;
+    pointer-events:none; /* allow clicks to pass through by default */
+    font:14px/1.4 system-ui,Segoe UI,Roboto,Arial,sans-serif
+  }
+
+  /* === Floating Player (bottom-right) === */
   .corner{
-    position:fixed; right:12px; bottom:12px; z-index:99999;
+    position:fixed; right:12px; bottom:12px; z-index:99998;
     width:520px; aspect-ratio:16/9;
     border:1px solid rgba(255,255,255,.08); border-radius:12px; overflow:hidden;
     background:#0d1220cc; box-shadow:0 10px 24px rgba(0,0,0,.45);
-    display:flex; flex-direction:column; resize:both; pointer-events:auto;
+    display:flex; flex-direction:column; resize:both;
+    pointer-events:auto; /* enable interaction on the panel */
   }
-  .bar{display:flex;align-items:center;gap:8px;background:rgba(19,22,32,.95);
-       padding:6px 8px;font-weight:600;font-size:12px;cursor:move;color:#e6edf3}
+  .bar{
+    display:flex; align-items:center; gap:8px;
+    background:rgba(19,22,32,.95);
+    padding:6px 8px; font-weight:600; font-size:12px; cursor:move; color:#e6edf3
+  }
   .title{flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  .btn,.sel,.fld{border:1px solid rgba(255,255,255,.08);background:#191e2bcc;color:#e6edf3;
-       border-radius:6px;padding:4px 6px;font-size:12px}
-  .btn{cursor:pointer}
-  .btn:hover{background:#202637}
-  .sel{cursor:pointer}
-  .fld{width:220px}
-  .frame{flex:1;position:relative;background:black}
-  video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;object-fit:cover}
-  .row{display:flex;align-items:center;gap:6px}
-  @media (max-width:640px){
-    .fld{display:none}
+  .btn{
+    border:1px solid rgba(255,255,255,.08);
+    background:#191e2bcc; color:#e6edf3;
+    border-radius:6px; padding:4px 8px; font-size:12px; cursor:pointer
   }
+  .btn:hover{background:#202637}
+  .frame{flex:1; position:relative; background:black}
+  video{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; border:0}
+
+  /* === Top-left global menu button === */
+  .menu-btn{
+    position:fixed; left:12px; top:12px; z-index:99999;
+    pointer-events:auto; /* clickable */
+    display:flex; align-items:center; gap:8px;
+    padding:6px 10px; border-radius:10px;
+    background:rgba(19,22,32,.95);
+    color:#e6edf3; border:1px solid rgba(255,255,255,.08);
+    cursor:pointer; user-select:none;
+  }
+  .menu-btn:hover{ background:#202637 }
+  .menu-caret{opacity:.7}
+
+  /* Menu dropdown */
+  .menu{
+    position:fixed; left:12px; top:52px; z-index:100000;
+    width:260px; max-height:320px; overflow:auto;
+    background:rgba(10,14,22,.98);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:12px; box-shadow:0 12px 24px rgba(0,0,0,.45);
+    padding:6px; display:none; pointer-events:auto;
+  }
+  .menu h4{
+    margin:6px 8px 8px; font-size:12px; color:#9fb3c8; font-weight:700; letter-spacing:.02em;
+  }
+  .item{
+    display:flex; align-items:center; gap:8px;
+    padding:8px; border-radius:10px; color:#e6edf3; cursor:pointer;
+  }
+  .item:hover{ background:#1b2336 }
+  .item small{ color:#9fb3c8 }
+  .dot{ width:8px; height:8px; border-radius:50%; background:#4c84ff; flex:0 0 8px }
+  .active .dot{ background:#34d399 }
 </style>
 </head>
 <body>
+
+  <!-- Top-left button -->
+  <div class="menu-btn" id="menuBtn">🎬 Clips <span class="menu-caret">▾</span></div>
+  <!-- Dropdown menu -->
+  <div class="menu" id="menu">
+    <h4>Choose a clip</h4>
+    <!-- Items populated by JS -->
+  </div>
+
+  <!-- Player window -->
   <div class="corner" id="corner">
     <div class="bar" id="drag">
       <span class="title">🧠 The Brain Rot Corner</span>
-      <select id="videoSelect" class="sel" title="Choose a loop"></select>
-      <input id="customUrl" class="fld" placeholder="Paste .mp4 URL">
-      <button class="btn" id="addBtn" title="Add custom URL">Add</button>
       <button class="btn" id="muteBtn">Unmute</button>
       <button class="btn" id="closeBtn">Close</button>
     </div>
@@ -54,86 +101,82 @@
   const mp4 = document.getElementById('mp4');
   const muteBtn = document.getElementById('muteBtn');
   const closeBtn = document.getElementById('closeBtn');
-  const videoSelect = document.getElementById('videoSelect');
-  const customUrl = document.getElementById('customUrl');
-  const addBtn = document.getElementById('addBtn');
+  const menuBtn = document.getElementById('menuBtn');
+  const menu = document.getElementById('menu');
 
-  // Default playlist (replace with your own .mp4 links)
-  const defaults = [
-    { label: "Subway Surfers (Releases)", src: "https://github.com/UneOrangeux/brainrotmaxxing/releases/latest/download/brainrot.mp4" },
+  // Predefined MP4 clips — replace labels/urls as you like
+  const CLIPS = [
+    { label: "Subway Surfers (Latest Release)", src: "https://github.com/UneOrangeux/brainrotmaxxing/releases/latest/download/brainrot.mp4" },
     { label: "Minecraft Parkour (sample)", src: "https://files.catbox.moe/9i5x6t.mp4" },
-    { label: "Oddly Satisfying (sample)", src: "https://files.catbox.moe/t0l0o7.mp4" },
-    { label: "Street Skating (sample)", src: "https://files.catbox.moe/0xq2mx.mp4" }
+    { label: "Street Skating (sample)", src: "https://files.catbox.moe/0xq2mx.mp4" },
+    { label: "Oddly Satisfying (sample)", src: "https://files.catbox.moe/t0l0o7.mp4" }
   ];
 
-  function loadList(){
-    const raw = localStorage.getItem("brainrot_list");
-    if(!raw){
-      localStorage.setItem("brainrot_list", JSON.stringify(defaults));
-      return defaults.slice();
-    }
-    try{ const arr = JSON.parse(raw); if(Array.isArray(arr) && arr.length) return arr; }catch(e){}
-    return defaults.slice();
-  }
-  function saveList(list){ localStorage.setItem("brainrot_list", JSON.stringify(list)); }
-
-  let list = loadList();
-
-  function renderOptions(){
-    videoSelect.innerHTML = list.map((it,i)=>`<option value="${i}">${it.label}</option>`).join("");
-  }
+  let currentSrc = localStorage.getItem("brainrot_src") || CLIPS[0].src;
+  let muted = true;
 
   function setSource(src){
+    currentSrc = src;
     mp4.src = src;
     mp4.play().catch(()=>{});
     localStorage.setItem("brainrot_src", src);
+    renderMenu();
   }
 
-  renderOptions();
-  const savedSrc = localStorage.getItem("brainrot_src");
-  const idx = savedSrc ? list.findIndex(x=>x.src===savedSrc) : -1;
-  if(idx>=0){ videoSelect.value = String(idx); setSource(savedSrc); }
-  else { videoSelect.value = "0"; setSource(list[0].src); }
+  function renderMenu(){
+    menu.innerHTML = '<h4>Choose a clip</h4>' + CLIPS.map(c=>{
+      const active = (c.src === currentSrc) ? ' active' : '';
+      return '<div class="item'+active+'" data-src="'+c.src.replace(/"/g,'&quot;')+'">'+
+               '<span class="dot"></span>'+
+               '<div><div>'+c.label+'</div>'+
+               '<small>'+ (new URL(c.src).host) +'</small></div>'+
+             '</div>';
+    }).join("");
+    Array.from(menu.querySelectorAll('.item')).forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const src = el.getAttribute('data-src');
+        setSource(src);
+        menu.style.display = 'none';
+      });
+    });
+  }
 
-  videoSelect.addEventListener("change", ()=>{
-    const i = parseInt(videoSelect.value,10);
-    if(list[i]) setSource(list[i].src);
-  });
+  setSource(currentSrc);
+  renderMenu();
 
-  addBtn.addEventListener("click", ()=>{
-    const url = (customUrl.value||"").trim();
-    if(!url || !/^https?:\\/\\/.+\\.mp4(\\?.*)?$/i.test(url)){ alert("Please paste a valid .mp4 URL"); return; }
-    const label = prompt("Name this video:", "Custom clip");
-    if(label===null) return;
-    list.push({ label: label||"Custom", src: url });
-    saveList(list);
-    renderOptions();
-    videoSelect.value = String(list.length-1);
-    setSource(url);
-    customUrl.value = "";
-  });
+  // Menu toggle
+  let open=false;
+  function toggleMenu(force){
+    open = (force!==undefined) ? force : !open;
+    menu.style.display = open ? 'block' : 'none';
+  }
+  menuBtn.addEventListener('click', (e)=>{ toggleMenu(); e.stopPropagation(); });
+  window.addEventListener('click', ()=> toggleMenu(false));
+  menu.addEventListener('click', (e)=> e.stopPropagation());
 
-  // Drag window
-  let dragging=false,sx=0,sy=0,ox=0,oy=0;
-  drag.addEventListener("mousedown", e=>{
+  // Drag player
+  let dragging=false, sx=0, sy=0, ox=0, oy=0;
+  drag.addEventListener('mousedown', (e)=>{
     dragging=true; sx=e.clientX; sy=e.clientY;
-    const r=corner.getBoundingClientRect(); ox=r.left; oy=r.top; e.preventDefault();
+    const r=corner.getBoundingClientRect(); ox=r.left; oy=r.top;
+    e.preventDefault();
   });
-  window.addEventListener("mousemove", e=>{
+  window.addEventListener('mousemove', (e)=>{
     if(!dragging) return;
     const dx=e.clientX-sx, dy=e.clientY-sy;
-    corner.style.left=(ox+dx)+"px"; corner.style.top=(oy+dy)+"px";
-    corner.style.right="auto"; corner.style.bottom="auto";
+    corner.style.left=(ox+dx)+'px';
+    corner.style.top=(oy+dy)+'px';
+    corner.style.right='auto'; corner.style.bottom='auto';
   });
-  window.addEventListener("mouseup", ()=> dragging=false);
+  window.addEventListener('mouseup', ()=> dragging=false);
 
-  // Mute toggle
-  let muted=true;
-  function sync(){ mp4.muted=muted; muteBtn.textContent=muted?"Unmute":"Mute"; if(!muted) mp4.play().catch(()=>{}); }
-  muteBtn.addEventListener("click", ()=>{ muted=!muted; sync(); });
-  sync();
+  // Mute control
+  function syncMute(){ mp4.muted = muted; muteBtn.textContent = muted ? "Unmute" : "Mute"; if(!muted) mp4.play().catch(()=>{}); }
+  muteBtn.addEventListener('click', ()=>{ muted=!muted; syncMute(); });
+  syncMute();
 
-  closeBtn.addEventListener("click", ()=> corner.remove());
+  // Close
+  closeBtn.addEventListener('click', ()=> corner.remove());
 })();
 </script>
 </body>
