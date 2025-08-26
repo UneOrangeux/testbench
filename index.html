@@ -112,6 +112,7 @@
     { label: "Oddly Satisfying (sample)", src: "https://files.catbox.moe/t0l0o7.mp4" }
   ];
 
+  // State
   let currentSrc = localStorage.getItem("brainrot_src") || CLIPS[0].src;
   let muted = true;
 
@@ -141,20 +142,21 @@
     });
   }
 
+  // Init source & menu
   setSource(currentSrc);
   renderMenu();
 
-  // Menu toggle
+  // Top-left menu interactions
   let open=false;
   function toggleMenu(force){
     open = (force!==undefined) ? force : !open;
     menu.style.display = open ? 'block' : 'none';
   }
   menuBtn.addEventListener('click', (e)=>{ toggleMenu(); e.stopPropagation(); });
-  window.addEventListener('click', ()=> toggleMenu(false));
+  window.addEventListener('click', ()=> toggleMenu(false)); // click-away to close
   menu.addEventListener('click', (e)=> e.stopPropagation());
 
-  // Drag player
+  // Drag window
   let dragging=false, sx=0, sy=0, ox=0, oy=0;
   drag.addEventListener('mousedown', (e)=>{
     dragging=true; sx=e.clientX; sy=e.clientY;
@@ -166,7 +168,8 @@
     const dx=e.clientX-sx, dy=e.clientY-sy;
     corner.style.left=(ox+dx)+'px';
     corner.style.top=(oy+dy)+'px';
-    corner.style.right='auto'; corner.style.bottom='auto';
+    corner.style.right='auto';
+    corner.style.bottom='auto';
   });
   window.addEventListener('mouseup', ()=> dragging=false);
 
